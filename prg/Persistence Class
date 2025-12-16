@@ -1,0 +1,103 @@
+REPORT zpersistent_class_demo.
+
+TYPES :BEGIN OF ty_emp,
+         emp_id TYPE zemp_id,
+         name   TYPE  zname2,
+         role   TYPE zname2,
+         cdate  TYPE datum,
+
+       END OF ty_emp.
+DATA :lo_emp_obj TYPE REF TO zcl_emp_tech,
+      lv_emp     TYPE zemp_tech-emp_id,
+      lt_emp     TYPE TABLE OF ty_emp,
+      ls_emp     TYPE ty_emp.
+
+SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-t01.
+
+  PARAMETERS:p_emp  TYPE zemp_tech-emp_id,
+             p_name TYPE  zemp_tech-name,
+             p_role TYPE zemp_tech-role,
+             p_date TYPE zemp_tech-cdate.
+
+  SELECT-OPTIONS: s_emp FOR lv_emp MODIF ID chg.
+
+SELECTION-SCREEN END OF BLOCK b1.
+SELECTION-SCREEN BEGIN OF BLOCK b2 WITH FRAME TITLE TEXT-t02.
+
+  PARAMETERS: p_rbt  RADIOBUTTON GROUP r1,
+              p_rbt2 RADIOBUTTON GROUP r1 DEFAULT 'X',
+              p_rbt3 RADIOBUTTON GROUP r1 MODIF ID wer,
+              p_rbt4 RADIOBUTTON GROUP r1 MODIF ID chg.
+
+SELECTION-SCREEN END OF BLOCK b2.
+
+    IF p_rbt = 'X'."Create Employee Data
+      TRY .
+          lo_emp_obj =  zca_emp_tech=>agent->create_persistent( i_emp_id = p_emp ).
+
+          lo_emp_obj->set_cdate( i_cdate = p_date  ).
+
+          lo_emp_obj->set_name( i_name = p_name ).
+
+          lo_emp_obj->set_role( i_role = p_role ).
+
+          COMMIT WORK.
+          MESSAGE 'Employee Details are Created' TYPE 'S'.
+
+      ENDTRY.
+    ELSEIF p_rbt2 = 'X'.
+      TRY.
+          lo_emp_obj = zca_emp_tech=>agent->get_persistent( i_emp_id = p_emp ).
+          lo_emp_obj->set_cdate( i_cdate = p_date ).
+          lo_emp_obj->set_name( i_name = p_name ).
+          lo_emp_obj->set_role( i_role = p_role  ).
+        CATCH cx_os_object_not_found. " Object Services Exception
+      ENDTRY.
+      COMMIT WORK.
+      MESSAGE 'Employee Details are Updated' TYPE 'S'.
+    ELSEIF p_rbt3 = 'X'.
+      TRY.
+          zca_emp_tech=>agent->delete_persistent( i_emp_id = p_emp ).
+        CATCH cx_os_object_not_found. " Object Services Exception
+      ENDTRY.
+      COMMIT WORK.
+      MESSAGE 'Employee Details are Deleted' TYPE 'S'.
+
+    ELSEIF p_rbt4 = 'X'.
+**  Single Read satatement  ***
+*try.
+*
+*lo_emp_obj = zca_emp_tech=>agent->get_persistent( i_emp_id = p_emp ).
+*ls_emp-cdate =  lo_emp_obj->get_cdate( ).
+*ls_emp-name = lo_emp_obj->get_name( ).
+*ls_emp-role = lo_emp_obj->get_role( ).
+*ls_emp-emp_id = lo_emp_obj->get_emp_id( ).
+*
+*
+*write: / ls_emp-emp_id,
+*       / ls_emp-cdate,
+*       / ls_emp-name,
+*       / ls_emp-role.
+*
+*endtry.
+** Multiple Read statement
+
+      DATA:lt_keys TYPE TABLE OF ty_emp,
+           ls_keys TYPE ty_emp.
+
+      DATA: lt_employee TYPE TABLE OF REF TO zcl_emp_tech.
+
+      DATA:lt_emp_data TYPE TABLE OF zemp_tech,
+           ls_emp_data TYPE zemp_tech.
+
+      SELECT emp_id,
+      name,
+      role,
+      cdate FROM zemp_tech INTO CORRESPONDING FIELDS OF TABLE @lt_emp_data WHERE emp_id IN @s_emp.
+
+      cl_demo_output=>display(
+        EXPORTING
+          data =  lt_emp_data  " Text or Data
+      ).
+
+    ENDIF.
